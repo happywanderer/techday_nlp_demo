@@ -1,0 +1,86 @@
+###
+#    The first function
+#
+#    This function reads in the data from the csv file
+#    It then processes the data into separate dataframes
+#    These dataframes are contained within a dictionary
+#    The function returns the dictionary of dataframes
+#    for further processing
+###
+
+def read_data():
+    df = pd.read_csv('./data/file.csv')
+    
+    # Initialize an empty dictionary to become the dictionary of dataframes
+    d = {}    
+
+    # rename the columns from crap into good stuff based on actual column names from csv file
+    columns_good = list(df.iloc[(df[df[df.columns[1]] == 'Source'].index[0])])
+    columns_bad = list(df.columns)
+    cols_dict = dict(zip(columns_bad, columns_good))
+    
+    df.rename(columns=cols_dict, inplace=True)
+
+    # Sanity check printing
+    # print(len(columns_good))
+    # print(len(columns_bad))
+    # cols_dict
+    
+    # Find all unique sources dropping garbage at top of CSV file
+    source_list = list(df.iloc[((df[df[df.columns[1]] == 'Source'].index[0])+1):,1].unique())
+    
+    # display(df.iloc[((df[df[df.columns[1]] == 'Source'].index[0])+1):,1])
+    
+    # Sanity check
+    # print(source_list)    
+
+    # create a list of the columsn that contain date/time information (used in the for loop below)
+    dt_cols = ['Date(ET)', 'Time(ET)', 'LocalTime']
+    
+    # Certain Sources have different column structures. 
+    # Create columnn lists for each source with the correct column headings
+    youtube_cols = "No,Source,Link,Date,Time,Author,Author Profile,Category,Title,Description,Views,Comments,Likes,Dislikes,Favourites,Duration (seconds),Unique ID".split(sep=',')
+    instagram_cols = "No,Source,Link,Date,Time,Author ID,Author Name,Language,Location,Contents,HashTags,Likes,Comments,Attachments,Brand Images,Object Images,Food Images,Scene Images,Selfie,Sentiment,Themes,Classifications,Entities,Unique ID".split(sep=',')
+    allother_cols = "No,Source,Host,Link,Date(ET),Time(ET),LocalTime,Category,Author ID,Author Name,Author URL,Authority,Followers,Following,Age,Gender,Language,Country,Province/State,City,Location,Sentiment,Themes,Classifications,Entities,Alexa Rank,Alexa Reach,Title,Snippet,Contents,Summary,Bio,Unique ID,Post Source".split(sep=',')
+    
+    # Create a for loop to build a dictionary of dataframes
+    for i in source_list:
+        d['{0}'.format(i)] = df[df.iloc[:,1] == i]
+        d['{0}'.format(i)].reset_index(inplace=True, drop=True)
+        
+        # Fix the datetime dtype issue.
+        # This applies the to_datetime function to the three identified rows that contain date/time data
+        # 
+        # IMPORTANT
+        # Because all sources were merged into ONE dataframe, some info in the date/time columns was NOT
+        # date/time info. For this reason, we use 'errors='ignore''. This keeps the original data that was
+        # NOT date/time data intact for when we split the data out into individual dataframes below
+        for col in dt_cols:
+            d['{0}'.format(i)].loc[:, col] = pd.to_datetime(d['{0}'.format(i)].loc[:, col], errors='ignore')
+        
+        temp_dict = {}
+        
+        if i == 'INSTAGRAM':
+            d['{0}'.format(i)] = d['{0}'.format(i)].iloc[:,0:24]
+            temp_dict = dict(zip(d['{0}'.format(i)].columns, instagram_cols))
+            d['{0}'.format(i)].rename(columns=temp_dict, inplace=True)
+        elif i == 'YOUTUBE':
+            d['{0}'.format(i)] = d['{0}'.format(i)].iloc[:,0:17]
+            temp_dict = dict(zip(d['{0}'.format(i)].columns, youtube_cols))
+            d['{0}'.format(i)].rename(columns=temp_dict, inplace=True)
+        else:
+            temp_dict = dict(zip(d['{0}'.format(i)].columns, allother_cols))
+            d['{0}'.format(i)].rename(columns=temp_dict, inplace=True)
+        
+    # Create a for loop to drop columns that are completely NaN in EACH dataframe
+    # Also drop any rows that are completely NaN in EACH dataframe
+    #for j in source_list:
+    #    print(d[j].shape)    # Sanity Check
+    #    d[j].dropna(axis=1, how='all', inplace=True)
+    #    print(d[j].shape)    # Sanity Check
+    #    d[j].dropna(axis=0, how='all', inplace=True)
+    #    print(d[j].shape)    # Sanity Check
+    #    d[j].reset_index(inplace=True, drop=True)
+        
+    # Return the dictionary of dataframes 
+    return(d)
